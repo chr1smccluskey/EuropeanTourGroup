@@ -1,0 +1,152 @@
+﻿@model HomeViewModel
+@using TechnicalTest.Controllers
+@{
+    ViewData["Title"] = Model?.Event?.Name;
+
+    var cutLineDrawn = false;
+}
+<div class="row">
+    <div class="col-3"><b>@Model?.Event?.Tour</b></div>
+    <div class="col-3"><b>@Model?.Event?.Name</b></div>
+    <div class="col-4"><b>@Model?.Event?.Course</b></div>
+    <div class="col-2"><b>@Model?.Event?.StartDate.ToString("dd MMM yyyy") - @Model?.Event?.EndDate.ToString("dd MMM yyyy")</b></div>
+</div>
+
+<form asp-controller="Home" asp-action="Index" method="get">
+    <input name="@nameof(HomeViewModel.SortColumn)" type="hidden" value="@ViewData[nameof(HomeViewModel.SortColumn)]?.ToString()?.Trim()">
+    <input name="@nameof(HomeViewModel.SortDirection)" type="hidden" value="@ViewData[nameof(HomeViewModel.SortDirection)]?.ToString()?.Trim()">
+    <div class="mt-5 row">
+        <div class="col-2">
+            <label>Find player: <input name="@nameof(HomeViewModel.Player)" type="search" value="@Model?.Player?.Trim()"></label>
+        </div>
+        <div class="col-2">
+            <label>Find match: <input name="@nameof(HomeViewModel.Match)" type="search" value="@Model?.Match?.Trim()"></label>
+        </div>
+        <div class="col-2 d-flex">
+            <div class="align-self-end">
+                <button asp-controller="Home" asp-action="Index">Search</button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="mt-5 row">
+    <div class="col">
+        <table class="table table-bordered table-hover">
+            <thead class="thead-light">
+                <tr>
+                    <th><a asp-action="Index" asp-route-match="@Model?.Match?.Trim()" asp-route-player="@Model?.Player?.Trim()" asp-route-sortColumn="Match" asp-route-sortDirection="@GetSortOrder("Match")">@GetSortOrderIcon("Match")Match</a></th>
+                    <th><a asp-action="Index" asp-route-match="@Model?.Match?.Trim()" asp-route-player="@Model?.Player?.Trim()" asp-route-sortColumn="Position" asp-route-sortDirection="@GetSortOrder("Position")">@GetSortOrderIcon("Position")Position</a></th>
+                    <th><a asp-action="Index" asp-route-match="@Model?.Match?.Trim()" asp-route-player="@Model?.Player?.Trim()" asp-route-sortColumn="Name" asp-route-sortDirection="@GetSortOrder("Name")">@GetSortOrderIcon("Name")Name</a></th>
+                    <th><a asp-action="Index" asp-route-match="@Model?.Match?.Trim()" asp-route-player="@Model?.Player?.Trim()" asp-route-sortColumn="Par" asp-route-sortDirection="@GetSortOrder("Par")">@GetSortOrderIcon("Par")Par</a></th>
+                    <th><a asp-action="Index" asp-route-match="@Model?.Match?.Trim()" asp-route-player="@Model?.Player?.Trim()" asp-route-sortColumn="R1" asp-route-sortDirection="@GetSortOrder("R1")">@GetSortOrderIcon("R1")<abbr title="Round 1">R1</abbr></a></th>
+                    <th><a asp-action="Index" asp-route-match="@Model?.Match?.Trim()" asp-route-player="@Model?.Player?.Trim()" asp-route-sortColumn="R2" asp-route-sortDirection="@GetSortOrder("R2")">@GetSortOrderIcon("R2")<abbr title="Round 2">R2</abbr></a></th>
+                    <th><a asp-action="Index" asp-route-match="@Model?.Match?.Trim()" asp-route-player="@Model?.Player?.Trim()" asp-route-sortColumn="R3" asp-route-sortDirection="@GetSortOrder("R3")">@GetSortOrderIcon("R3")<abbr title="Round 3">R3</abbr></a></th>
+                    <th><a asp-action="Index" asp-route-match="@Model?.Match?.Trim()" asp-route-player="@Model?.Player?.Trim()" asp-route-sortColumn="R4" asp-route-sortDirection="@GetSortOrder("R4")">@GetSortOrderIcon("R4")<abbr title="Round 4">R4</abbr></a></th>
+                    <th><a asp-action="Index" asp-route-match="@Model?.Match?.Trim()" asp-route-player="@Model?.Player?.Trim()" asp-route-sortColumn="Holes" asp-route-sortDirection="@GetSortOrder("Holes")">@GetSortOrderIcon("Holes")Holes</a></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var roundSummary in Model?.Event?.RoundSummaries ?? Enumerable.Empty<RoundSummary>())
+                {
+                    if (DrawCutLine(roundSummary, ref cutLineDrawn))
+                    {
+                        <tr class="table-secondary">
+                            <td class="text-center" colspan="9">Missed Cut</td>
+                        </tr>
+                    }
+                    <tr>
+                        <td>@roundSummary.Match</td>
+                        <td>@roundSummary.PositionDesc</td>
+                        <td>@roundSummary.Name</td>
+                        <td>@roundSummary.Par?.ToString("+#;-#;E")</td>
+                        <td>@{ DisplayScore(roundSummary.Round1); }</td>
+                        <td>@{ DisplayScore(roundSummary.Round2); }</td>
+                        <td>@{ DisplayScore(roundSummary.Round3); }</td>
+                        <td>@{ DisplayScore(roundSummary.Round4); }</td>
+                        <td>@roundSummary.LatestRound?.HolesPlayed</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@{
+    void DisplayScore(Round? round)
+    {
+        if (round == null)
+        {
+            return;
+        }
+
+        var colour = "bg-danger";
+
+        if (round.HolesPlayed < 18)
+        {
+            colour = "badge bg-warning text-dark";
+        }
+        else if (round.HolesPlayed == 18 && round.IncompleteHoles == 0)
+        {
+            colour = "bg-success";
+        }
+
+        <div class="badge @colour">@round.Strokes</div>
+    }
+}
+
+@functions {
+    public string GetSortOrder(string sortColumn)
+    {
+        return ViewData[nameof(HomeViewModel.SortColumn)]?.ToString() == sortColumn
+            ? ViewData[nameof(HomeViewModel.SortDirection)]?.ToString() == nameof(ListSortDirection.Ascending)
+                ? nameof(ListSortDirection.Descending)
+                : nameof(ListSortDirection.Ascending)
+            : nameof(ListSortDirection.Ascending);
+    }
+
+    public HtmlString GetSortOrderIcon(string sortColumn)
+    {
+        if (ViewData[nameof(HomeViewModel.SortColumn)]?.ToString() == sortColumn)
+        {
+            var iconType = string.Equals(sortColumn, "Name", StringComparison.OrdinalIgnoreCase) ? "alpha" : "numeric";
+            var iconDirection = ViewData[nameof(HomeViewModel.SortDirection)]?.ToString() == nameof(ListSortDirection.Ascending)
+                    || string.IsNullOrWhiteSpace(ViewData[nameof(HomeViewModel.SortDirection)]?.ToString())
+                ? "down"
+                : "down-alt";
+
+            return new HtmlString($"<i class=\"bi bi-sort-{iconType}-{iconDirection}\"></i>&nbsp;");
+        }
+        else
+        {
+            return HtmlString.Empty;
+        }
+    }
+
+    public bool DrawCutLine(RoundSummary roundSummary, ref bool cutLineDrawn)
+    {
+        var drawCutLine = false;
+
+        if (!cutLineDrawn)
+        {
+            if (ViewData[nameof(HomeViewModel.SortColumn)]?.ToString() == "Position")
+            {
+                if (ViewData[nameof(HomeViewModel.SortDirection)]?.ToString() == nameof(ListSortDirection.Ascending) && roundSummary.MissedCut == true)
+                {
+                    drawCutLine = true;
+                }
+                else if (ViewData[nameof(HomeViewModel.SortDirection)]?.ToString() == nameof(ListSortDirection.Descending) && roundSummary.MissedCut == false)
+                {
+                    drawCutLine = true;
+                }
+            }
+
+            if (drawCutLine == true)
+            {
+                cutLineDrawn = drawCutLine;
+            }
+        }
+
+        return drawCutLine;
+    }
+}
